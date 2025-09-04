@@ -1,4 +1,4 @@
-import { createRouter, RouterProvider, createRoute, createRootRoute } from '@tanstack/react-router'
+import { createRouter, RouterProvider, createRoute, createRootRoute, Outlet } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { useAppStore } from '@/store/useAppStore'
@@ -18,7 +18,27 @@ const queryClient = new QueryClient({
 function RootComponent() {
   const { theme } = useAppStore()
 
-  // Apply theme on mount and changes
+  // Initialize theme on mount
+  useEffect(() => {
+    // Get persisted theme or default to light
+    const persistedTheme = localStorage.getItem('ai-simulator-storage')
+    if (persistedTheme) {
+      try {
+        const parsed = JSON.parse(persistedTheme)
+        const savedTheme = parsed?.state?.theme || 'light'
+        if (savedTheme === 'dark') {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      } catch {
+        // Fallback to light theme
+        document.documentElement.classList.remove('dark')
+      }
+    }
+  }, [])
+
+  // Apply theme on changes
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark')
@@ -29,9 +49,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
         <Toaster />
-        <Dashboard />
+        <Outlet />
       </div>
     </QueryClientProvider>
   )
@@ -42,6 +62,13 @@ const rootRoute = createRootRoute({
   component: RootComponent,
 })
 
+// Dashboard route
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: Dashboard,
+})
+
 // Create the chat route
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -50,20 +77,18 @@ const chatRoute = createRoute({
 })
 
 // Create the route tree
-const routeTree = rootRoute.addChildren([chatRoute])
+const routeTree = rootRoute.addChildren([indexRoute, chatRoute])
 
-// Create a new router instance
+// Create router
 const router = createRouter({ routeTree })
 
-// Register the router instance for type safety
+// Update the router instance type for typescript
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router
   }
 }
 
-function App() {
+export default function App() {
   return <RouterProvider router={router} />
 }
-
-export default App
